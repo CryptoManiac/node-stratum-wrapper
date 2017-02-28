@@ -1,0 +1,37 @@
+{
+    "logLevel": "debug",
+    "logColors": true,
+
+    "cliPort": 17117,
+
+    "clustering": {
+        "enabled": true,
+        "forks": "auto"
+    },
+
+    "defaultPoolConfigs": {
+        "blockRefreshInterval": 1000,
+        "jobRebroadcastTimeout": 55,
+        "connectionTimeout": 600,
+        "banning": {
+            "enabled": true,
+            "time": 600,
+            "invalidPercent": 50,
+            "checkThreshold": 500,
+            "purgeInterval": 300
+        },
+        "redis": {
+            "host": "127.0.0.1",
+            "port": 6379,
+            "db": 3,
+            "password": ""
+        }
+    },
+
+    "redis": {
+        "host": "127.0.0.1",
+        "port": 6379,
+        "db": 3,
+        "password": ""
+    }
+}
