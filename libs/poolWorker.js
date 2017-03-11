@@ -12,13 +12,6 @@ module.exports = function(logger){
     var portalConfig = JSON.parse(process.env.portalConfig);
     var forkId = process.env.forkId;
     var pools = {};
-    var proxySwitch = {};
-
-    var redisClient = redis.createClient(portalConfig.redis.port, portalConfig.redis.host);
-
-    // redis auth if enabled 
-    redisClient.auth(portalConfig.redis.password);
-    redisClient.select(portalConfig.redis.db);
 
     //Handle messages from master process sent via IPC
     process.on('message', function(message) {
@@ -55,7 +48,6 @@ module.exports = function(logger){
                 break;
         }
     });
-
 
     var createAndStartPool = function(coin){
         var poolOptions = poolConfigs[coin];

@@ -2,19 +2,26 @@ var redis = require('redis');
 var Stratum = require('stratum-pool');
 var wv = require('wallet-address-validator');
 
-/*
-This module deals with handling shares when in internal payment processing mode. It connects to a redis
-database and inserts shares with the database structure of:
+function getSubsidy(blockHeight) {
+    var halvings = Math.floor(blockHeight / 210000);
 
-key: coin_name + ':' + block_height
-value: a hash with..
-        key:
+    // Force block reward to zero when right shift is undefined.
+    if (halvings >= 64) {
+        return 0;
+    }
 
- */
+    var nSubsidy = 5000000000;
 
+    // Subsidy is cut in half every 210000 blocks which will occur approximately every 4 years.
+    while (halvings > 0) {
+      nSubsidy /= 2;
+      halvings--;
+    }
 
+    return nSubsidy;
+}
 
-module.exports = function(logger, poolConfig){
+module.exports = function(logger, poolConfig) {
 
     var redisConfig = poolConfig.redis;
     var coin = poolConfig.coin.name;
@@ -26,9 +33,10 @@ module.exports = function(logger, poolConfig){
     var logSubCat = 'Thread ' + (parseInt(forkId) + 1);
 
     var connection = redis.createClient(redisConfig.port, redisConfig.host);
+
     // redis auth if needed
-     connection.auth(redisConfig.password);
-     connection.select(redisConfig.db);
+    connection.auth(redisConfig.password);
+    connection.select(redisConfig.db);
 
     connection.on('ready', function(){
         logger.debug(logSystem, logComponent, logSubCat, 'Share processing setup with redis (' + redisConfig.host +
@@ -67,7 +75,6 @@ module.exports = function(logger, poolConfig){
         }
     });
 
-
     this.handleAuxBlock = function(isValidBlock, height, hash, tx, diff, coin){
 
         var redisCommands = [];
@@ -88,36 +95,49 @@ module.exports = function(logger, poolConfig){
 
     this.handleShare = function(isValidShare, isValidBlock, shareData, coin, aux){
         var redisCommands = [];
-        shareData.worker = shareData.worker.trim();
 
-        var minerAddress = shareData.worker.split('.')[0];
+        var authData = shareData.worker
+            .trim()
+            .slice(0, 60)
+            .replace(':', '');
+
+        var [minerAddress, workerInfo] = authData.split('.');
+        var [workerName, workerID] = workerInfo ? workerInfo.split('|') : [];
+
         if (!wv.validate(minerAddress)) {
-            shareData.worker = poolConfig.address;
-        } else {
-            shareData.worker = shareData.worker.slice(0, 60).replace(':', '');
+            minerAddress = poolConfig.address;
         }
 
-        if (isValidShare){
-            redisCommands.push(['hincrbyfloat', coin + ':shares:Today', shareData.worker.split('.')[0], shareData.difficulty]);
-            redisCommands.push(['hincrby', coin + ':stats', 'validShares', 1]);
+        shareData.worker = [minerAddress, workerName].join('.');
 
-            var blockReward = 12.5 * 100000000;
-            var shareReward = (blockReward * shareData.difficulty) / shareData.blockDiff;
-            redisCommands.push(['hincrbyfloat', coin + ':PPS_balances', shareData.worker.split('.')[0], shareReward]);
+        if (!aux){
+            if (isValidShare){
+                redisCommands.push(['hincrbyfloat', coin + ':shares:Today', minerAddress, shareData.difficulty]);
+                redisCommands.push(['hincrby', coin + ':stats', 'validShares', 1]);
+
+                console.log('Block reward: ', getSubsidy(shareData.height));
+
+                var shareReward = (12.5 * 100000000) * shareData.difficulty / shareData.blockDiff;
+                redisCommands.push(['hincrbyfloat', coin + ':PPS_balances', minerAddress, shareReward]);
+
+                // Stores share diff, worker, and unique value with a score that is the timestamp. Unique value ensures it
+                // doesn't overwrite an existing entry, and timestamp as score lets us query shares from last X minutes to
+                // generate hashrate for each worker and pool.
+
+                var dateNow = Date.now();
+                var hashrateData = [ shareData.difficulty, shareData.worker, dateNow];
+                redisCommands.push(['zadd', coin + ':hashrate', dateNow / 1000 | 0, hashrateData.join(':')]);
+                if (workerName && workerID){
+                    redisCommands.push(['hset', coin + ':lastActivity', [workerName, workerID].join('.'), dateNow / 1000 | 0]);
+                }
+            }
+            else{
+                redisCommands.push(['hincrby', coin + ':stats', 'invalidShares', 1]);
+            }
         }
-        else{
-            redisCommands.push(['hincrby', coin + ':stats', 'invalidShares', 1]);
-        }
-        /* Stores share diff, worker, and unique value with a score that is the timestamp. Unique value ensures it
-           doesn't overwrite an existing entry, and timestamp as score lets us query shares from last X minutes to
-           generate hashrate for each worker and pool. */
-        var dateNow = Date.now();
-        if (aux != true){
-            var hashrateData = [ isValidShare ? shareData.difficulty : -shareData.difficulty, shareData.worker, dateNow];
-            redisCommands.push(['zadd', coin + ':hashrate', dateNow / 1000 | 0, hashrateData.join(':')]);
-        }
+
         if (isValidBlock){
-            redisCommands.push(['hincrby', coin + ':block_finders', shareData.worker.split('.')[0], 1]);
+            redisCommands.push(['hincrby', coin + ':block_finders', minerAddress, 1]);
             redisCommands.push(['hincrby', coin + ':stats', 'validBlocks', 1]);
         }
         else if (shareData.blockHash){
@@ -130,5 +150,4 @@ module.exports = function(logger, poolConfig){
         });
 
     };
-
 };
