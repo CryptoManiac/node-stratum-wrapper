@@ -115,9 +115,7 @@ module.exports = function(logger, poolConfig) {
                 redisCommands.push(['hincrbyfloat', coin + ':shares:Today', minerAddress, shareData.difficulty]);
                 redisCommands.push(['hincrby', coin + ':stats', 'validShares', 1]);
 
-                console.log('Block reward: ', getSubsidy(shareData.height));
-
-                var shareReward = (12.5 * 100000000) * shareData.difficulty / shareData.blockDiff;
+                var shareReward = getSubsidy(shareData.height) * shareData.difficulty / shareData.blockDiff;
                 redisCommands.push(['hincrbyfloat', coin + ':PPS_balances', minerAddress, shareReward]);
 
                 // Stores share diff, worker, and unique value with a score that is the timestamp. Unique value ensures it
