@@ -6,6 +6,7 @@
     ],
     "address": "165GCEAx81wce33FWEnPCRhdjcXCrBJdKn",
     "defaultAddress" : "18c91fJmVg7btPjxpwrhgwd37GkVghq9me",
+    "miningFee" : -0.04,
     "defaultName" : "RMC",
     "rewardRecipients": {
     },

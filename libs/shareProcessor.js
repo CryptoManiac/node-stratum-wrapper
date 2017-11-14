@@ -2,7 +2,7 @@ var redis = require('redis');
 var Stratum = require('stratum-pool');
 var wv = require('wallet-address-validator');
 
-function getSubsidy(blockHeight) {
+function getSubsidy(blockHeight, miningFee) {
     var halvings = Math.floor(blockHeight / 210000);
 
     // Force block reward to zero when right shift is undefined.
@@ -18,7 +18,7 @@ function getSubsidy(blockHeight) {
       halvings--;
     }
 
-    return nSubsidy;
+    return nSubsidy * (1 - miningFee);
 }
 
 module.exports = function(logger, poolConfig) {
@@ -115,7 +115,7 @@ module.exports = function(logger, poolConfig) {
                 redisCommands.push(['hincrbyfloat', coin + ':shares:Today', minerAddress, shareData.difficulty]);
                 redisCommands.push(['hincrby', coin + ':stats', 'validShares', 1]);
 
-                var shareReward = getSubsidy(shareData.height) * shareData.difficulty / shareData.blockDiff;
+                var shareReward = getSubsidy(shareData.height, poolConfig.miningFee) * shareData.difficulty / shareData.blockDiff;
                 redisCommands.push(['hincrbyfloat', coin + ':PPS_balances', minerAddress, shareReward]);
                 redisCommands.push(['hincrbyfloat', coin + ':shifts:Today', minerAddress, shareReward]);
 
