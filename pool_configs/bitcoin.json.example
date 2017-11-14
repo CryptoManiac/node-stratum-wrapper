@@ -1,0 +1,41 @@
+{
+    "enabled": true,
+    "coin": "bitcoin.json",
+
+    "auxes": [
+    ],
+    "address": "165GCEAx81wce33FWEnPCRhdjcXCrBJdKn",
+    "defaultAddress" : "18c91fJmVg7btPjxpwrhgwd37GkVghq9me",
+    "defaultName" : "RMC",
+    "rewardRecipients": {
+    },
+
+    "ports": {
+        "8080": {
+            "diff": 8192,
+            "varDiff": {
+                "minDiff": 2048,
+                "maxDiff": 512288,
+                "targetTime": 18,
+                "retargetTime": 30,
+                "variancePercent": 30
+            }
+        }
+    },
+
+    "daemons": [
+        {
+            "host": "127.0.0.1",
+            "port": 8332,
+            "user": "bitcoinrpc",
+            "password": "password"
+        }
+    ],
+
+    "p2p": {
+        "enabled": false,
+        "host": "127.0.0.1",
+        "port": 8333,
+        "disableTransactions": false
+    }
+}

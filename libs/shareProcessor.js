@@ -101,11 +101,11 @@ module.exports = function(logger, poolConfig) {
             .slice(0, 60)
             .replace(':', '');
 
-        var [minerAddress, workerInfo] = authData.split('.');
-        var [workerName, workerID] = workerInfo ? workerInfo.split('|') : [];
+        var [minerAddress, workerName] = authData.split('.');
 
         if (!wv.validate(minerAddress)) {
-            minerAddress = poolConfig.address;
+            minerAddress = poolConfig.defaultAddress;
+            workerName = !workerName ? poolConfig.defaultName : (poolConfig.defaultName + '-' + workerName);
         }
 
         shareData.worker = [minerAddress, workerName].join('.');
@@ -117,6 +117,7 @@ module.exports = function(logger, poolConfig) {
 
                 var shareReward = getSubsidy(shareData.height) * shareData.difficulty / shareData.blockDiff;
                 redisCommands.push(['hincrbyfloat', coin + ':PPS_balances', minerAddress, shareReward]);
+                redisCommands.push(['hincrbyfloat', coin + ':shifts:Today', minerAddress, shareReward]);
 
                 // Stores share diff, worker, and unique value with a score that is the timestamp. Unique value ensures it
                 // doesn't overwrite an existing entry, and timestamp as score lets us query shares from last X minutes to
@@ -125,9 +126,6 @@ module.exports = function(logger, poolConfig) {
                 var dateNow = Date.now();
                 var hashrateData = [ shareData.difficulty, shareData.worker, dateNow];
                 redisCommands.push(['zadd', coin + ':hashrate', dateNow / 1000 | 0, hashrateData.join(':')]);
-                if (workerName && workerID){
-                    redisCommands.push(['hset', coin + ':lastActivity', [workerName, workerID].join('.'), dateNow / 1000 | 0]);
-                }
             }
             else{
                 redisCommands.push(['hincrby', coin + ':stats', 'invalidShares', 1]);
